@@ -4,7 +4,6 @@ import android.arch.lifecycle.ViewModelProviders;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.widget.Toast;
-
 import com.ewaytest.models.vehicle.Vehicle;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -17,7 +16,6 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
