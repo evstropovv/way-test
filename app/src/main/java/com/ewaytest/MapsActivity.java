@@ -1,14 +1,10 @@
 package com.ewaytest;
 
-import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.ViewModelProviders;
-import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Toast;
 
-import com.ewaytest.models.Tram;
 import com.ewaytest.models.vehicle.Vehicle;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -18,22 +14,17 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.VisibleRegion;
-import com.google.gson.Gson;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.inject.Inject;
-
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     TramsViewModel model;
     private GoogleMap mMap;
-    private Boolean isMapReady = false;
     private HashMap<String, List<Vehicle>> mapOfVisibleTrams;
 
     @Override
@@ -48,22 +39,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         model = ViewModelProviders.of(this).get(TramsViewModel.class);
     }
 
+    private void setMapStyle(){
+        int mapResource = getResources().getIdentifier("retromap", "raw", getPackageName());
+        boolean success = mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, mapResource));
+    }
 
 
     private void setListeners() {
-        mMap.setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
-            @Override
-            public void onCameraChange(CameraPosition cameraPosition) {
-                VisibleRegion visibleRegion = mMap.getProjection().getVisibleRegion();
-                model.setNewVisibleRegion(visibleRegion);
-            }
+        mMap.setOnCameraChangeListener(cameraPosition -> {
+            addMarkersOnMap(mapOfVisibleTrams);
+            model.setCameraPosition(cameraPosition);
         });
-        mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
-            @Override
-            public boolean onMarkerClick(Marker marker) {
-                onMarkerClicked(marker);
-                return true;
-            }
+        mMap.setOnMarkerClickListener(marker -> {
+            onMarkerClicked(marker);
+            return true;
         });
     }
 
@@ -83,32 +72,50 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        isMapReady = true;
         mMap = googleMap;
-        LatLng lviv = new LatLng(49.841, 24.032);
-        mMap.addMarker(new MarkerOptions().position(lviv).title("Marker in Lviv"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(lviv));
+        setMapStyle();
         setListeners();
-//        mMap.setMyLocationEnabled(true);
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(lviv, 13);
-        mMap.animateCamera(cameraUpdate);
 
-        model.getTramsWithGpsInVisible().observe(this, new Observer<HashMap<String, List<Vehicle>>>() {
-            @Override
-            public void onChanged(@Nullable HashMap<String, List<Vehicle>> stringListHashMap) {
-                Log.d("Log.d", "onChanged " + new Gson().toJson(stringListHashMap));
-                if ((stringListHashMap != null) && (stringListHashMap.size() > 0)) {
-                    mMap.clear();
-                    mapOfVisibleTrams = stringListHashMap;
-                    for (Map.Entry<String, List<Vehicle>> entry : stringListHashMap.entrySet()) {
-                        List<Vehicle> list = entry.getValue();
-                        for (int i = 0; i < list.size(); i++) {
-                            LatLng tramMarker = new LatLng(list.get(i).getLat(), list.get(i).getLng());
+        if (model.getCameraPosition() != null) {
+            moveCamera(model.getCameraPosition());
+        } else {
+            LatLng lviv = new LatLng(49.841, 24.032);
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(lviv, 15);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(lviv));
+            mMap.animateCamera(cameraUpdate);
+        }
+
+        model.getTramsWithGpsInVisible().observe(this, stringListHashMap -> {
+            mapOfVisibleTrams = stringListHashMap;
+            addMarkersOnMap(stringListHashMap);
+        });
+
+    }
+
+    private void moveCamera(CameraPosition cameraPosition) {
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(cameraPosition.target, cameraPosition.zoom);
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(cameraPosition.target));
+        mMap.animateCamera(cameraUpdate);
+    }
+
+    private void addMarkersOnMap(HashMap<String, List<Vehicle>> map) {
+        if ((map != null) && (map.size() > 0)) {
+            mMap.clear();
+            for (Map.Entry<String, List<Vehicle>> entry : new HashMap<>(map).entrySet()) {
+                List<Vehicle> list = entry.getValue();
+                if (list!=null){
+                    for (int i = 0; i < list.size(); i++) {
+                        LatLng tramMarker = new LatLng(list.get(i).getLat(), list.get(i).getLng());
+                        if (isVisibleOnMap(tramMarker)) {
                             mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram)));
                         }
                     }
                 }
             }
-        });
+        }
+    }
+
+    public boolean isVisibleOnMap(LatLng latLng) {
+        return mMap.getProjection().getVisibleRegion().latLngBounds.contains(latLng);
     }
 }

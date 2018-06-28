@@ -7,6 +7,7 @@ import android.arch.lifecycle.ViewModel;
 import com.ewaytest.domain.RoutesInteractor;
 import com.ewaytest.models.routelist.Route;
 import com.ewaytest.models.vehicle.Vehicle;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.VisibleRegion;
 
@@ -42,16 +43,14 @@ public class TramsViewModel extends ViewModel {
 
     private List<Route> tramsRoutes;
 
-    private VisibleRegion visibleRegion;
-
     private Timer timer;
+
+    private CameraPosition cameraPosition;
 
     //key - id of route , value - GPS coordinates
 
     private MutableLiveData<HashMap<String, List<Vehicle>>> tramsWithGps;
     private HashMap<String, List<Vehicle>> mapTramsWithGps;
-
-    private MutableLiveData<HashMap<String, List<Vehicle>>> tramsWithGpsVisible;
 
 
     public TramsViewModel() {
@@ -59,7 +58,6 @@ public class TramsViewModel extends ViewModel {
         tramsWithGps = new MutableLiveData<>();
         mapTramsWithGps = new HashMap<>();
         timer = new Timer();
-        tramsWithGpsVisible = new MutableLiveData<>();
     }
 
     private void getRoutesList() {
@@ -80,13 +78,13 @@ public class TramsViewModel extends ViewModel {
     }
 
 
-
     private void loadTramsWithGps(List<Route> routeList) {
         //циклично раз в 20 сек загружаем GPS данные ВСЕХ травмаев
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                mapTramsWithGps.clear();
+                mapTramsWithGps = new HashMap<>();
+
                 for (int i = 0; i < routeList.size(); i++) {
                     int finalI = i;
                     Disposable disposable = routesInteractor
@@ -94,48 +92,33 @@ public class TramsViewModel extends ViewModel {
                             .subscribeOn(Schedulers.io())
                             .subscribe(routesGPS -> {
                                 mapTramsWithGps.put(routeList.get(finalI).getId(), routesGPS.getVehicle());
-                                tramsWithGps.postValue(mapTramsWithGps);
-                                // Log.d("Log.d", "update" + tramsWithGps.getValue().size()+"");
+                                if (finalI == (routeList.size() - 1))
+                                    tramsWithGps.postValue(mapTramsWithGps);
                             });
                     disposables.add(disposable);
                 }
-                updateTramsGpsInVisible();
+
             }
         }, 0, PERIOD_REQUEST);
     }
 
-
-    public void setNewVisibleRegion(VisibleRegion visibleRegion) {
-        this.visibleRegion = visibleRegion;
-        updateTramsGpsInVisible();
-    }
+//
+//    public void setNewVisibleRegion(VisibleRegion visibleRegion) {
+//        this.visibleRegion = visibleRegion;
+//    //    updateTramsGpsInVisible();
+//    }
 
     public LiveData<HashMap<String, List<Vehicle>>> getTramsWithGpsInVisible() {
         if (tramsRoutes == null) getRoutesList();
-        return tramsWithGpsVisible;
+        return tramsWithGps;
     }
 
-    private void updateTramsGpsInVisible() {
-        //отбор всех видимых трамвайчиков
-        HashMap<String, List<Vehicle>> mapTramsWithGpsVisible = new HashMap<>();
-        for (Map.Entry<String, List<Vehicle>> entry : mapTramsWithGps.entrySet()) {
-            List<Vehicle> vehicles = new ArrayList<>();
-            for (int i = 0; i < entry.getValue().size(); i++) {
-                if (isVisibleOnMap(new LatLng(entry.getValue().get(i).getLat(), entry.getValue().get(i).getLng()))) {
-                    vehicles.add(entry.getValue().get(i));
-                }
-            }
-            mapTramsWithGpsVisible.put(entry.getKey(), vehicles);
-        }
-        tramsWithGpsVisible.postValue(mapTramsWithGpsVisible);
+    public void setCameraPosition(CameraPosition cameraPosition) {
+        this.cameraPosition = cameraPosition;
     }
 
-    private boolean isVisibleOnMap(LatLng latLng) {
-        try {
-            return visibleRegion.latLngBounds.contains(latLng);
-        } catch (NullPointerException e) {
-            return false;
-        }
+    public CameraPosition getCameraPosition() {
+        return cameraPosition;
     }
 
     @Override
