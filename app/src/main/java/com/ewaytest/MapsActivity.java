@@ -3,8 +3,12 @@ package com.ewaytest;
 import android.arch.lifecycle.ViewModelProviders;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
+
 import com.ewaytest.models.vehicle.Vehicle;
+import com.ewaytest.utils.LatLngInterpolator;
+import com.ewaytest.utils.MarkerAnimation;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -16,6 +20,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +29,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     TramsViewModel model;
     private GoogleMap mMap;
     private HashMap<String, List<Vehicle>> mapOfVisibleTrams;
+    private HashMap<String, Marker> markers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,11 +39,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        markers = new HashMap<>();
         mapOfVisibleTrams = new HashMap<>();
         model = ViewModelProviders.of(this).get(TramsViewModel.class);
     }
 
-    private void setMapStyle(){
+    private void setMapStyle() {
         int mapResource = getResources().getIdentifier("retromap", "raw", getPackageName());
         boolean success = mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, mapResource));
     }
@@ -98,14 +105,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void addMarkersOnMap(HashMap<String, List<Vehicle>> map) {
         if ((map != null) && (map.size() > 0)) {
-            mMap.clear();
             for (Map.Entry<String, List<Vehicle>> entry : new HashMap<>(map).entrySet()) {
                 List<Vehicle> list = entry.getValue();
-                if (list!=null){
+                if (list != null) {
                     for (int i = 0; i < list.size(); i++) {
                         LatLng tramMarker = new LatLng(list.get(i).getLat(), list.get(i).getLng());
-                        if (isVisibleOnMap(tramMarker)) {
-                            mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram)));
+                        String uniqueId = String.valueOf(list.get(i).getId());
+
+                        boolean isInMarkers = isInMarkers(uniqueId);
+                        boolean isVisibleOnMap = isVisibleOnMap(tramMarker);
+
+                        if (isInMarkers && isVisibleOnMap) {
+                            //получаем маркер и присваиваем ему новые координаты
+                            MarkerAnimation.animateMarkerToICS(markers.get(uniqueId), tramMarker, new LatLngInterpolator.Spherical());
+                        } else if (isVisibleOnMap) {
+                            markers.put(uniqueId, mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram))));
+                        } else if (isInMarkers) {
+                            markers.get(uniqueId).remove();
+                            markers.remove(uniqueId);
                         }
                     }
                 }
@@ -115,5 +132,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public boolean isVisibleOnMap(LatLng latLng) {
         return mMap.getProjection().getVisibleRegion().latLngBounds.contains(latLng);
+    }
+
+    private boolean isInMarkers(String id) {
+        for (Map.Entry<String, Marker> entry : new HashMap<>(markers).entrySet()) {
+            if (entry.getKey().equals(id)) return true;
+        }
+        return false;
     }
 }
