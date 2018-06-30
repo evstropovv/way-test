@@ -1,6 +1,7 @@
 package com.ewaytest.domain;
 
 import com.ewaytest.models.routelist.RouteList;
+import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.RoutesGPS;
 import com.ewaytest.rest.Webservice;
 
@@ -24,5 +25,10 @@ public class RoutesInteractorImpl implements RoutesInteractor {
     @Override
     public Single<RoutesGPS> getRoutesGps(String id) {
         return webservice.getVehicleGps("routes.GetRouteGPS", id);
+    }
+
+   @Override
+    public Single<RouteToDisplay> getRouteToDisplay(String id, String startPosition, String stopPosition) {
+        return webservice.getRouteToDisplay("routes.GetRouteToDisplay", id, startPosition, stopPosition);
     }
 }

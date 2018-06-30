@@ -1,6 +1,7 @@
 package com.ewaytest.domain;
 
 import com.ewaytest.models.routelist.RouteList;
+import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.RoutesGPS;
 
 import io.reactivex.Flowable;
@@ -13,4 +14,6 @@ public interface RoutesInteractor {
     Flowable<RouteList> getRoutes();
 
     Single<RoutesGPS> getRoutesGps(String id);
+
+    Single<RouteToDisplay> getRouteToDisplay(String id, String startPosition, String stopPosition);
 }

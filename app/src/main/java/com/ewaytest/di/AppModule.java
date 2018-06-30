@@ -4,8 +4,6 @@ import android.content.Context;
 import android.support.annotation.NonNull;
 
 import com.ewaytest.BuildConfig;
-import com.ewaytest.db.AppDatabase;
-import com.ewaytest.db.TramDao;
 import com.ewaytest.rest.Webservice;
 
 import java.io.IOException;
@@ -38,11 +36,6 @@ public class AppModule {
         return context;
     }
 
-    @Provides
-    @Singleton
-    TramDao provideDao() {
-        return AppDatabase.getAppDatabase(context).userDao();
-    }
 
     @Provides
     @Singleton

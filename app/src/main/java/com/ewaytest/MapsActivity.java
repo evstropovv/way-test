@@ -1,14 +1,18 @@
 package com.ewaytest;
 
 import android.arch.lifecycle.ViewModelProviders;
+import android.graphics.Color;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.widget.Toast;
 
+import com.ewaytest.models.Tram;
+import com.ewaytest.models.todisplay.Point;
+import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
 import com.ewaytest.utils.LatLngInterpolator;
 import com.ewaytest.utils.MarkerAnimation;
+import com.ewaytest.viewmodels.TramsViewModel;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -20,7 +24,11 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+import com.google.gson.Gson;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,13 +37,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     TramsViewModel model;
     private GoogleMap mMap;
     private HashMap<String, List<Vehicle>> mapOfVisibleTrams;
-    private HashMap<String, Marker> markers;
+    Polyline polyline1, polyline2;
+
+    //key - уникальный ID транспорта, val - ID маршрута и Маркер на гугл карте
+    private HashMap<String, Tram> markers;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -49,12 +59,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         boolean success = mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, mapResource));
     }
 
+    private void updateMarkers(CameraPosition cameraPosition) {
+        addMarkersOnMap(mapOfVisibleTrams);
+        model.setCameraPosition(cameraPosition);
+    }
 
     private void setListeners() {
-        mMap.setOnCameraChangeListener(cameraPosition -> {
-            addMarkersOnMap(mapOfVisibleTrams);
-            model.setCameraPosition(cameraPosition);
-        });
+        mMap.setOnCameraIdleListener(() -> updateMarkers(mMap.getCameraPosition()));
         mMap.setOnMarkerClickListener(marker -> {
             onMarkerClicked(marker);
             return true;
@@ -62,17 +73,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void onMarkerClicked(Marker marker) {
-        for (Map.Entry<String, List<Vehicle>> entry : mapOfVisibleTrams.entrySet()) {
-            List<Vehicle> list = entry.getValue();
-            if ((list != null) && (list.size() > 0)) {
-                for (int i = 0; i < list.size(); i++) {
-                    if ((list.get(i).getLat() == marker.getPosition().latitude) &&
-                            (list.get(i).getLng() == marker.getPosition().longitude)) {
-                        Toast.makeText(this, "Marshrut " + entry.getKey() + " ID " + list.get(i).getId(), Toast.LENGTH_SHORT).show();
-                    }
+        if (model.isRouteShowing()) {
+            clearRoute();
+        } else {
+            //TODO - тут все Map clear от лишних ...
+
+            for (Map.Entry<String, Tram> entry : markers.entrySet()) {
+                if (entry.getValue().getMarkerOptions().equals(marker)) {
+                    model.loadRouteToDisplay(String.valueOf(entry.getValue().getId()));
+                    model.setRouteFilter(entry.getValue().getId());
                 }
             }
         }
+        updateMarkers(model.getCameraPosition());
+    }
+
+    private void clearRoute() {
+        model.clearRouteToDisplay();
+        if (polyline1 != null) polyline1.remove();
+        if (polyline2 != null) polyline2.remove();
     }
 
     @Override
@@ -80,53 +99,78 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap = googleMap;
         setMapStyle();
         setListeners();
+        moveCamera();
+        model.getTramsWithGps().observe(this, stringListHashMap -> {
+            mapOfVisibleTrams = stringListHashMap;
+            addMarkersOnMap(mapOfVisibleTrams);
+        });
+        model.getRouteToDisplay().observe(this, route -> {
+            showRouteOnMap(route);
+        });
+    }
 
-        if (model.getCameraPosition() != null) {
-            moveCamera(model.getCameraPosition());
+    private void showRouteOnMap(RouteToDisplay route) {
+        if (route != null) {
+            List<Point> points = route.getRoute().getPoints().getPoint();
+            List<LatLng> pointList1 = new ArrayList<LatLng>();
+            List<LatLng> pointList2 = new ArrayList<LatLng>();
+            for (int i = 0; i < points.size(); i++) {
+                if (points.get(i).getDirection() == 1) {
+                    pointList1.add(new LatLng(Double.parseDouble(points.get(i).getLat()), Double.parseDouble(points.get(i).getLng())));
+                } else {
+                    pointList2.add(new LatLng(Double.parseDouble(points.get(i).getLat()), Double.parseDouble(points.get(i).getLng())));
+                }
+            }
+            polyline1 = mMap.addPolyline(new PolylineOptions()
+                    .clickable(true).addAll(pointList1).color(Color.parseColor("#7eea0004")));
+            polyline2 = mMap.addPolyline(new PolylineOptions()
+                    .clickable(false).addAll(pointList2).color(Color.parseColor("#6b001eff")));
+        }
+    }
+
+    private void moveCamera() {
+        CameraPosition cameraPosition = model.getCameraPosition();
+        if (cameraPosition != null) {
+            CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(cameraPosition.target, cameraPosition.zoom);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(cameraPosition.target));
+            mMap.animateCamera(cameraUpdate);
         } else {
             LatLng lviv = new LatLng(49.841, 24.032);
             CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(lviv, 15);
             mMap.moveCamera(CameraUpdateFactory.newLatLng(lviv));
             mMap.animateCamera(cameraUpdate);
         }
-
-        model.getTramsWithGpsInVisible().observe(this, stringListHashMap -> {
-            mapOfVisibleTrams = stringListHashMap;
-            addMarkersOnMap(stringListHashMap);
-        });
-
     }
 
-    private void moveCamera(CameraPosition cameraPosition) {
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(cameraPosition.target, cameraPosition.zoom);
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(cameraPosition.target));
-        mMap.animateCamera(cameraUpdate);
-    }
-
+    //key - уникальный ID маршрута, value - лист с ID транспорта и их координатами
     private void addMarkersOnMap(HashMap<String, List<Vehicle>> map) {
-        if ((map != null) && (map.size() > 0)) {
-            for (Map.Entry<String, List<Vehicle>> entry : new HashMap<>(map).entrySet()) {
+        for (Map.Entry<String, List<Vehicle>> entry : new HashMap<>(map).entrySet()) {
+            try {
                 List<Vehicle> list = entry.getValue();
-                if (list != null) {
-                    for (int i = 0; i < list.size(); i++) {
-                        LatLng tramMarker = new LatLng(list.get(i).getLat(), list.get(i).getLng());
-                        String uniqueId = String.valueOf(list.get(i).getId());
+                for (int i = 0; i < list.size(); i++) {
+                    if (model.isRouteShowing() && Long.parseLong(entry.getKey()) != model.getRouteFilter())
+                        break;
 
-                        boolean isInMarkers = isInMarkers(uniqueId);
-                        boolean isVisibleOnMap = isVisibleOnMap(tramMarker);
+                    LatLng tramMarker = new LatLng(list.get(i).getLat(), list.get(i).getLng());
+                    String uniqueId = String.valueOf(list.get(i).getId());
 
-                        if (isInMarkers && isVisibleOnMap) {
-                            //получаем маркер и присваиваем ему новые координаты
-                            MarkerAnimation.animateMarkerToICS(markers.get(uniqueId), tramMarker, new LatLngInterpolator.Spherical());
-                        } else if (isVisibleOnMap) {
-                            markers.put(uniqueId, mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram))));
-                        } else if (isInMarkers) {
-                            markers.get(uniqueId).remove();
-                            markers.remove(uniqueId);
-                        }
+                    boolean isInMarkers = isInMarkers(uniqueId);
+                    boolean isVisibleOnMap = isVisibleOnMap(tramMarker);
+
+                    if (isInMarkers && isVisibleOnMap) {
+                        //получаем маркер и присваиваем ему новые координаты
+                        MarkerAnimation.animateMarkerToICS(markers.get(uniqueId).getMarkerOptions(), tramMarker, new LatLngInterpolator.Spherical());
+                        model.setVisibleRouteId(entry.getKey());
+                    } else if (isVisibleOnMap) {
+                        markers.put(uniqueId, new Tram(Long.parseLong(entry.getKey()), mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram)))));
+                        model.setVisibleRouteId(entry.getKey());
+                    } else if (isInMarkers) {
+                        markers.get(uniqueId).getMarkerOptions().remove();
+                        markers.remove(uniqueId);
+                        model.removeVisibleRouteId(entry.getKey());
                     }
                 }
-            }
+            } catch (NullPointerException e){}
         }
     }
 
@@ -135,7 +179,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private boolean isInMarkers(String id) {
-        for (Map.Entry<String, Marker> entry : new HashMap<>(markers).entrySet()) {
+        for (Map.Entry<String, Tram> entry : new HashMap<>(markers).entrySet()) {
             if (entry.getKey().equals(id)) return true;
         }
         return false;
