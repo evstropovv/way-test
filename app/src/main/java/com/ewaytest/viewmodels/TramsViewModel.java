@@ -12,7 +12,10 @@ import com.ewaytest.models.routelist.Route;
 import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
 import com.google.android.gms.maps.model.CameraPosition;
+import com.google.gson.Gson;
+
 import org.reactivestreams.Publisher;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,16 +75,15 @@ public class TramsViewModel extends ViewModel {
 
         //get routes list and filtering trams with gps
         Disposable routesDisposable = routesInteractor.getRoutes()
-                .map(data -> data.getRoutesList().getRoute())
                 .subscribeOn(Schedulers.io())
+                .map(data -> data.getRoutesList().getRoute())
                 .flatMap((Function<List<Route>, Publisher<Route>>) Flowable::fromIterable)
-                .filter(route -> (route.getHasGps() == 1) && (route.getTransport().equals("tram")))
+                .filter(route -> (route.getHasGps() == 0) && (route.getTransport().equals("tram")))
                 .toList()
                 .subscribe(routeList -> {
                     tramsRoutes = routeList;
                     loadTramsWithGps(routeList);
                 }, throwable -> {
-
                 });
         disposables.add(routesDisposable);
     }
@@ -101,10 +103,12 @@ public class TramsViewModel extends ViewModel {
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(routesGPS -> {
                                     try {  //во время поворота экрана может измениться количество видимых авто
+                                        Log.d("Log.d", new Gson().toJson(routesGPS));
                                         mapTramsWithGps.put(visibleRouteId.get(finalI), routesGPS.getVehicle());
                                         if (finalI == (visibleRouteId.size() - 1))
                                             tramsWithGps.postValue(mapTramsWithGps);
-                                    }catch(IndexOutOfBoundsException e){}
+                                    } catch (IndexOutOfBoundsException e) {
+                                    }
                                 });
                         disposables.add(disposable);
                     }
@@ -115,6 +119,7 @@ public class TramsViewModel extends ViewModel {
                                 .getRoutesGps(routeList.get(i).getId())
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(routesGPS -> {
+                                    Log.d("Log.d", new Gson().toJson(routesGPS));
                                     mapTramsWithGps.put(routeList.get(finalI).getId(), routesGPS.getVehicle());
                                     if (finalI == (routeList.size() - 1))
                                         tramsWithGps.postValue(mapTramsWithGps);
@@ -139,11 +144,11 @@ public class TramsViewModel extends ViewModel {
         return isRouteShowing;
     }
 
-    public long getRouteFilter(){
+    public long getRouteFilter() {
         return idRouteFilter;
     }
 
-    public void setRouteFilter(long id){
+    public void setRouteFilter(long id) {
         idRouteFilter = id;
     }
 

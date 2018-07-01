@@ -32,15 +32,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
     TramsViewModel model;
     private GoogleMap mMap;
-    private HashMap<String, List<Vehicle>> mapOfVisibleTrams;
-    Polyline polyline1, polyline2;
-
+    private Polyline polyline1, polyline2;
     //key - уникальный ID транспорта, val - ID маршрута и Маркер на гугл карте
-    private HashMap<String, Tram> markers;
+    private HashMap<String, Tram> markers = new HashMap<>();
+    private HashMap<String, List<Vehicle>> mapOfVisibleTrams = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,8 +49,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-        markers = new HashMap<>();
-        mapOfVisibleTrams = new HashMap<>();
         model = ViewModelProviders.of(this).get(TramsViewModel.class);
     }
 
@@ -76,17 +74,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (model.isRouteShowing()) {
             clearRoute();
         } else {
-            //TODO - тут все Map clear от лишних ...
-
             for (Map.Entry<String, Tram> entry : markers.entrySet()) {
                 if (entry.getValue().getMarkerOptions().equals(marker)) {
-                    model.loadRouteToDisplay(String.valueOf(entry.getValue().getId()));
                     model.setRouteFilter(entry.getValue().getId());
+                    model.loadRouteToDisplay(String.valueOf(entry.getValue().getId()));
                 }
+                //TODO пересмотреть!!
+                if (entry.getValue().getId() != entry.getValue().getId()) markers.remove(entry.getKey());
             }
         }
         updateMarkers(model.getCameraPosition());
     }
+
+//    private void clearFromMarkers(long routeFilter) {
+//        for (Map.Entry<String, Tram> entry : markers.entrySet()) {
+//            if (entry.getValue().getId() != routeFilter) markers.remove(entry.getKey());
+//        }
+//    }
+
 
     private void clearRoute() {
         model.clearRouteToDisplay();
@@ -104,16 +109,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mapOfVisibleTrams = stringListHashMap;
             addMarkersOnMap(mapOfVisibleTrams);
         });
-        model.getRouteToDisplay().observe(this, route -> {
-            showRouteOnMap(route);
-        });
+        model.getRouteToDisplay().observe(this, this::showRouteOnMap);
     }
 
     private void showRouteOnMap(RouteToDisplay route) {
         if (route != null) {
             List<Point> points = route.getRoute().getPoints().getPoint();
-            List<LatLng> pointList1 = new ArrayList<LatLng>();
-            List<LatLng> pointList2 = new ArrayList<LatLng>();
+            List<LatLng> pointList1 = new ArrayList<>();
+            List<LatLng> pointList2 = new ArrayList<>();
             for (int i = 0; i < points.size(); i++) {
                 if (points.get(i).getDirection() == 1) {
                     pointList1.add(new LatLng(Double.parseDouble(points.get(i).getLat()), Double.parseDouble(points.get(i).getLng())));
@@ -144,6 +147,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     //key - уникальный ID маршрута, value - лист с ID транспорта и их координатами
     private void addMarkersOnMap(HashMap<String, List<Vehicle>> map) {
+
         for (Map.Entry<String, List<Vehicle>> entry : new HashMap<>(map).entrySet()) {
             try {
                 List<Vehicle> list = entry.getValue();
@@ -170,7 +174,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         model.removeVisibleRouteId(entry.getKey());
                     }
                 }
-            } catch (NullPointerException e){}
+            } catch (NullPointerException e) {
+            }
         }
     }
 
@@ -179,9 +184,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private boolean isInMarkers(String id) {
-        for (Map.Entry<String, Tram> entry : new HashMap<>(markers).entrySet()) {
-            if (entry.getKey().equals(id)) return true;
+        if (markers.containsKey(id)) {
+            return true;
+        } else {
+            return false;
         }
-        return false;
+
+//        for (Map.Entry<String, Tram> entry : new HashMap<>(markers).entrySet()) {
+//            if (entry.getKey().equals(id)) return true;
+//        }
+// return false;
     }
 }
