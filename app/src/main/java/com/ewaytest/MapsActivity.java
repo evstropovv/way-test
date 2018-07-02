@@ -1,8 +1,13 @@
 package com.ewaytest;
 
+import android.arch.lifecycle.Observer;
 import android.arch.lifecycle.ViewModelProviders;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
+import android.view.View;
+
 import com.ewaytest.models.Tram;
 import com.ewaytest.models.todisplay.Point;
 import com.ewaytest.models.todisplay.RouteToDisplay;
@@ -21,6 +26,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +37,8 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
 
+    protected Snackbar snackbar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,6 +47,17 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+        initNoInternetSnackbar();
+
+    }
+
+    private void initNoInternetSnackbar() {
+        snackbar = Snackbar.make(findViewById(R.id.frame), getResources().getString(R.string.no_internet_text), Snackbar.LENGTH_INDEFINITE)
+                .setAction(getResources().getString(R.string.no_internet_button), view -> model.getRoutesList())
+                .setActionTextColor(getResources().getColor(android.R.color.holo_red_light));
+        model.isOnline().observe(this, aBoolean -> {
+            if (!aBoolean) snackbar.show();
+        });
     }
 
     private void initListeners() {

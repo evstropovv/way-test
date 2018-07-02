@@ -4,7 +4,10 @@ import android.content.Context;
 import android.support.annotation.NonNull;
 
 import com.ewaytest.BuildConfig;
+import com.ewaytest.domain.RoutesInteractor;
+import com.ewaytest.domain.RoutesInteractorImpl;
 import com.ewaytest.rest.Webservice;
+import com.ewaytest.utils.Util;
 
 import java.io.IOException;
 
@@ -36,6 +39,11 @@ public class AppModule {
         return context;
     }
 
+    @Provides
+    @Singleton
+    Util provideUtil(Context context) {
+        return new Util(context);
+    }
 
     @Provides
     @Singleton

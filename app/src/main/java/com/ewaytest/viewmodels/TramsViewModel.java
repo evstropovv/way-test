@@ -5,21 +5,27 @@ import android.arch.lifecycle.MutableLiveData;
 import android.arch.lifecycle.ViewModel;
 import android.os.Looper;
 import android.util.Log;
+
 import com.ewaytest.App;
 import com.ewaytest.domain.RoutesInteractor;
 import com.ewaytest.models.routelist.Route;
 import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
+import com.ewaytest.utils.Util;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.gson.Gson;
+
 import org.reactivestreams.Publisher;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+
 import javax.inject.Inject;
+
 import io.reactivex.Flowable;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
@@ -30,6 +36,13 @@ public class TramsViewModel extends ViewModel {
 
     @Inject
     RoutesInteractor routesInteractor;
+
+    @Inject
+    Util util;
+
+
+    private MutableLiveData<Boolean> isOnline;
+
 
     private final int PERIOD_REQUEST = 20 * 1000; //20 sec //TODO
 
@@ -59,28 +72,39 @@ public class TramsViewModel extends ViewModel {
         App.getComponent().inject(this);
         tramsWithGps = new MutableLiveData<>();
         route = new MutableLiveData<>();
+        isOnline = new MutableLiveData<>();
         mapTramsWithGps = new HashMap<>();
         visibleRouteId = new ArrayList<>();
         timer = new Timer();
+
     }
 
-    private void getRoutesList() {
-        Log.d("Log.d", "isMainThread - " + (Looper.myLooper() == Looper.getMainLooper()));
+    public LiveData<Boolean> isOnline() {
+        return isOnline;
+    }
 
-        //get routes list and filtering trams with gps
-        Disposable routesDisposable = routesInteractor.getRoutes()
-                .subscribeOn(Schedulers.io())
-                .map(data -> data.getRoutesList().getRoute())
-                .flatMap((Function<List<Route>, Publisher<Route>>) Flowable::fromIterable)
-                .filter(route -> (route.getHasGps() == 1) && (route.getTransport().equals("tram")))
-                .toList()
-                .subscribe(routeList -> {
-                    Log.d("Log.d", "routeList" + new Gson().toJson(routeList));
-                    tramsRoutes = routeList;
-                    loadTramsWithGps(routeList);
-                }, throwable -> {
-                });
-        disposables.add(routesDisposable);
+    public void getRoutesList() {
+        isOnline.postValue(true);
+        Log.d("Log.d", "isMainThread - " + (Looper.myLooper() == Looper.getMainLooper()));
+        if (util.isOnline()) {
+            isOnline.postValue(true);
+            //get routes list and filtering trams with gps
+            Disposable routesDisposable = routesInteractor.getRoutes()
+                    .subscribeOn(Schedulers.io())
+                    .map(data -> data.getRoutesList().getRoute())
+                    .flatMap((Function<List<Route>, Publisher<Route>>) Flowable::fromIterable)
+                    .filter(route -> (route.getHasGps() == 1) && (route.getTransport().equals("tram")))
+                    .toList()
+                    .subscribe(routeList -> {
+                        tramsRoutes = routeList;
+                        loadTramsWithGps(routeList);
+                    }, throwable -> {
+                    });
+            disposables.add(routesDisposable);
+        } else {
+            isOnline.postValue(false);
+        }
+
     }
 
 
@@ -93,38 +117,47 @@ public class TramsViewModel extends ViewModel {
                 if (visibleRouteId.size() > 0) {
                     for (int i = 0; i < visibleRouteId.size(); i++) {
                         int finalI = i;
-                        disposable = routesInteractor
-                                .getRoutesGps(visibleRouteId.get(i))
-                                .subscribeOn(Schedulers.io())
-                                .subscribe(routesGPS -> {
-                                    try {  //во время поворота экрана может измениться количество видимых авто
-                                        HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
-                                        mapTramsWithGps.put(visibleRouteId.get(finalI), vehicleSet);
-                                        if (finalI == (visibleRouteId.size() - 1))
-                                            tramsWithGps.postValue(mapTramsWithGps);
-                                    } catch (Exception e) {
-                                    }
-                                });
-                        disposables.add(disposable);
+                        if (util.isOnline()) {
+                            disposable = routesInteractor
+                                    .getRoutesGps(visibleRouteId.get(i))
+                                    .subscribeOn(Schedulers.io())
+                                    .subscribe(routesGPS -> {
+                                        try {  //во время поворота экрана может измениться количество видимых авто
+                                            HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
+                                            mapTramsWithGps.put(visibleRouteId.get(finalI), vehicleSet);
+                                            if (finalI == (visibleRouteId.size() - 1))
+                                                tramsWithGps.postValue(mapTramsWithGps);
+                                        } catch (Exception e) {
+                                        }
+                                    });
+                            disposables.add(disposable);
+                        } else {
+                            isOnline.postValue(false);
+                        }
+
                     }
                 } else {
                     for (int i = 0; i < routeList.size(); i++) {
                         int finalI = i;
-                        disposable = routesInteractor
-                                .getRoutesGps(routeList.get(i).getId())
-                                .subscribeOn(Schedulers.io())
-                                .subscribe(routesGPS -> {
-                                    try {  //во время поворота экрана может измениться количество видимых авто
-                                        HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
-                                        String key = routeList.get(finalI).getId();
-                                        mapTramsWithGps.put(key, vehicleSet);
-                                        if (finalI == (routeList.size() - 1))
-                                            tramsWithGps.postValue(mapTramsWithGps);
-                                    } catch (Exception e) {
-                                        Log.e("Log.e", e.getMessage()+ "");
-                                    }
-                                });
-                        disposables.add(disposable);
+                        if (util.isOnline()) {
+                            disposable = routesInteractor
+                                    .getRoutesGps(routeList.get(i).getId())
+                                    .subscribeOn(Schedulers.io())
+                                    .subscribe(routesGPS -> {
+                                        try {  //во время поворота экрана может измениться количество видимых авто
+                                            HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
+                                            String key = routeList.get(finalI).getId();
+                                            mapTramsWithGps.put(key, vehicleSet);
+                                            if (finalI == (routeList.size() - 1))
+                                                tramsWithGps.postValue(mapTramsWithGps);
+                                        } catch (Exception e) {
+                                            Log.e("Log.e", e.getMessage() + "");
+                                        }
+                                    });
+                            disposables.add(disposable);
+                        } else {
+                            isOnline.postValue(false);
+                        }
                     }
                 }
             }
@@ -158,15 +191,19 @@ public class TramsViewModel extends ViewModel {
 
         String startPosition = tramsRoutes.get(i).getStartPosition();
         String stopPosition = tramsRoutes.get(i).getStopPosition();
+        if (util.isOnline()) {
+            Disposable disposable = routesInteractor.getRouteToDisplay(routeID, startPosition, stopPosition)
+                    .subscribeOn(Schedulers.io())
+                    .subscribe(routeToDisplay -> {
+                        isRouteShowing = true;
+                        route.postValue(routeToDisplay);
+                    }, throwable -> {
+                    });
+            disposables.add(disposable);
+        } else {
+             isOnline.postValue(false);
+        }
 
-        Disposable disposable = routesInteractor.getRouteToDisplay(routeID, startPosition, stopPosition)
-                .subscribeOn(Schedulers.io())
-                .subscribe(routeToDisplay -> {
-                    isRouteShowing = true;
-                    route.postValue(routeToDisplay);
-                }, throwable -> {
-                });
-        disposables.add(disposable);
     }
 
     public LiveData<HashMap<String, HashSet<Vehicle>>> getTramsWithGps() {

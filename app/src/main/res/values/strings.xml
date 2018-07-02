@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Eway Test</string>
     <string name="title_activity_maps">Eway Test</string>
+    <string name="no_internet_text">Відсутній інтернет. Спробувати ще раз? </string>
+    <string name="no_internet_button">Перезавантажити</string>
+
+
 </resources>

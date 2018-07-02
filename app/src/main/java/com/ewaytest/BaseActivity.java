@@ -1,5 +1,9 @@
 package com.ewaytest;
 
+import android.os.Bundle;
+import android.os.PersistableBundle;
+import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.FragmentActivity;
 
 import com.ewaytest.models.Tram;
@@ -16,10 +20,15 @@ import java.util.HashSet;
 import java.util.Map;
 
 abstract class BaseActivity extends FragmentActivity {
+
     protected TramsViewModel model;
+
     protected Polyline polyline1, polyline2;
+
     //key - уникальный ID транспорта, val - ID маршрута и Маркер на гугл карте
+
     protected HashMap<String, Tram> markers = new HashMap<>();
+
     protected HashMap<String, HashSet<Vehicle>> mapOfVisibleTrams = new HashMap<>();
 
     abstract boolean isVisibleOnMap(LatLng latLng);
