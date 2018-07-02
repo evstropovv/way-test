@@ -5,7 +5,6 @@ import android.arch.lifecycle.MutableLiveData;
 import android.arch.lifecycle.ViewModel;
 import android.os.Looper;
 import android.util.Log;
-
 import com.ewaytest.App;
 import com.ewaytest.domain.RoutesInteractor;
 import com.ewaytest.models.routelist.Route;
@@ -13,17 +12,14 @@ import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.gson.Gson;
-
 import org.reactivestreams.Publisher;
-
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-
 import javax.inject.Inject;
-
 import io.reactivex.Flowable;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
@@ -45,19 +41,17 @@ public class TramsViewModel extends ViewModel {
 
     private List<Route> tramsRoutes;
 
-    private long idRouteFilter = 0;
-
     private Timer timer;
 
     private CameraPosition cameraPosition;
 
     //key - id of route , value - GPS coordinates
 
-    private MutableLiveData<HashMap<String, List<Vehicle>>> tramsWithGps;
+    private MutableLiveData<HashMap<String, HashSet<Vehicle>>> tramsWithGps;
 
     private MutableLiveData<RouteToDisplay> route;
 
-    private HashMap<String, List<Vehicle>> mapTramsWithGps;
+    private HashMap<String, HashSet<Vehicle>> mapTramsWithGps;
 
     private List<String> visibleRouteId;
 
@@ -78,9 +72,10 @@ public class TramsViewModel extends ViewModel {
                 .subscribeOn(Schedulers.io())
                 .map(data -> data.getRoutesList().getRoute())
                 .flatMap((Function<List<Route>, Publisher<Route>>) Flowable::fromIterable)
-                .filter(route -> (route.getHasGps() == 0) && (route.getTransport().equals("tram")))
+                .filter(route -> (route.getHasGps() == 1) && (route.getTransport().equals("tram")))
                 .toList()
                 .subscribe(routeList -> {
+                    Log.d("Log.d", "routeList" + new Gson().toJson(routeList));
                     tramsRoutes = routeList;
                     loadTramsWithGps(routeList);
                 }, throwable -> {
@@ -103,11 +98,11 @@ public class TramsViewModel extends ViewModel {
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(routesGPS -> {
                                     try {  //во время поворота экрана может измениться количество видимых авто
-                                        Log.d("Log.d", new Gson().toJson(routesGPS));
-                                        mapTramsWithGps.put(visibleRouteId.get(finalI), routesGPS.getVehicle());
+                                        HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
+                                        mapTramsWithGps.put(visibleRouteId.get(finalI), vehicleSet);
                                         if (finalI == (visibleRouteId.size() - 1))
                                             tramsWithGps.postValue(mapTramsWithGps);
-                                    } catch (IndexOutOfBoundsException e) {
+                                    } catch (Exception e) {
                                     }
                                 });
                         disposables.add(disposable);
@@ -119,10 +114,15 @@ public class TramsViewModel extends ViewModel {
                                 .getRoutesGps(routeList.get(i).getId())
                                 .subscribeOn(Schedulers.io())
                                 .subscribe(routesGPS -> {
-                                    Log.d("Log.d", new Gson().toJson(routesGPS));
-                                    mapTramsWithGps.put(routeList.get(finalI).getId(), routesGPS.getVehicle());
-                                    if (finalI == (routeList.size() - 1))
-                                        tramsWithGps.postValue(mapTramsWithGps);
+                                    try {  //во время поворота экрана может измениться количество видимых авто
+                                        HashSet<Vehicle> vehicleSet = new HashSet<>(routesGPS.getVehicle());
+                                        String key = routeList.get(finalI).getId();
+                                        mapTramsWithGps.put(key, vehicleSet);
+                                        if (finalI == (routeList.size() - 1))
+                                            tramsWithGps.postValue(mapTramsWithGps);
+                                    } catch (Exception e) {
+                                        Log.e("Log.e", e.getMessage()+ "");
+                                    }
                                 });
                         disposables.add(disposable);
                     }
@@ -144,13 +144,6 @@ public class TramsViewModel extends ViewModel {
         return isRouteShowing;
     }
 
-    public long getRouteFilter() {
-        return idRouteFilter;
-    }
-
-    public void setRouteFilter(long id) {
-        idRouteFilter = id;
-    }
 
     public void loadRouteToDisplay(String routeID) {
         int i = 0;
@@ -176,7 +169,7 @@ public class TramsViewModel extends ViewModel {
         disposables.add(disposable);
     }
 
-    public LiveData<HashMap<String, List<Vehicle>>> getTramsWithGps() {
+    public LiveData<HashMap<String, HashSet<Vehicle>>> getTramsWithGps() {
         if (tramsRoutes == null) getRoutesList();
         return tramsWithGps;
     }
