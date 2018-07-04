@@ -1,20 +1,13 @@
 package com.ewaytest;
 
-import android.arch.lifecycle.Observer;
-import android.arch.lifecycle.ViewModelProviders;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
-import android.view.View;
 
 import com.ewaytest.models.Tram;
 import com.ewaytest.models.todisplay.Point;
 import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
-import com.ewaytest.utils.LatLngInterpolator;
-import com.ewaytest.utils.MarkerAnimation;
-import com.ewaytest.viewmodels.TramsViewModel;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -100,8 +93,8 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
                     boolean isVisibleOnMap = isVisibleOnMap(tramMarker);
 
                     if (isInMarkers && isVisibleOnMap) {
-                        //отримуємо маркер та виконуємо його анімацію
-                        MarkerAnimation.animateMarker(markers.get(uniqueId).getMarkerOptions(), tramMarker,  mMap);
+                        //змінюємо позицію
+                        markers.get(uniqueId).getMarkerOptions().setPosition(tramMarker);
                         model.setVisibleRouteId(entry.getKey());
                     } else if (isVisibleOnMap) {
                         markers.put(uniqueId, new Tram(Long.parseLong(entry.getKey()), mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram)))));
