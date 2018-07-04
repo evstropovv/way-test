@@ -1,5 +1,6 @@
 package com.ewaytest;
 
+import android.arch.lifecycle.ViewModelProviders;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.support.annotation.Nullable;
@@ -36,6 +37,12 @@ abstract class BaseActivity extends FragmentActivity {
     abstract void showRouteOnMap(RouteToDisplay route);
 
     abstract void addMarkersOnMap(HashMap<String, HashSet<Vehicle>> map);
+
+    @Override
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        model = ViewModelProviders.of(this).get(TramsViewModel.class);
+    }
 
     protected void onMarkerClicked(Marker marker) {
         if (model.isRouteShowing()) {

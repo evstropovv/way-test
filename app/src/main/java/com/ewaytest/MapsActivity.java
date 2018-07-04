@@ -43,7 +43,6 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        model = ViewModelProviders.of(this).get(TramsViewModel.class);
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -102,7 +101,7 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
 
                     if (isInMarkers && isVisibleOnMap) {
                         //отримуємо маркер та виконуємо його анімацію
-                        MarkerAnimation.animateMarkerToICS(markers.get(uniqueId).getMarkerOptions(), tramMarker, new LatLngInterpolator.Spherical());
+                        MarkerAnimation.animateMarker(markers.get(uniqueId).getMarkerOptions(), tramMarker,  mMap);
                         model.setVisibleRouteId(entry.getKey());
                     } else if (isVisibleOnMap) {
                         markers.put(uniqueId, new Tram(Long.parseLong(entry.getKey()), mMap.addMarker(new MarkerOptions().position(tramMarker).icon(BitmapDescriptorFactory.fromResource(R.drawable.tram)))));
