@@ -8,11 +8,14 @@ import android.util.Log;
 
 import com.ewaytest.App;
 import com.ewaytest.domain.RoutesInteractor;
+import com.ewaytest.models.Routes;
 import com.ewaytest.models.routelist.Route;
+import com.ewaytest.models.todisplay.Point;
 import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
 import com.ewaytest.utils.Util;
 import com.google.android.gms.maps.model.CameraPosition;
+import com.google.android.gms.maps.model.LatLng;
 import com.google.gson.Gson;
 
 import org.reactivestreams.Publisher;
@@ -62,10 +65,11 @@ public class TramsViewModel extends ViewModel {
 
     private MutableLiveData<HashMap<String, HashSet<Vehicle>>> tramsWithGps;
 
-    private MutableLiveData<RouteToDisplay> route;
+    private MutableLiveData<Routes> route;
 
     private HashMap<String, HashSet<Vehicle>> mapTramsWithGps;
 
+    //ID маршрутів трамваїв, які знаходяться на видимій частині карти
     private List<String> visibleRouteId;
 
     public TramsViewModel() {
@@ -113,7 +117,7 @@ public class TramsViewModel extends ViewModel {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-//                mapTramsWithGps = new HashMap<>();
+                //якщо є хоч один трамвай на видмій частині карти
                 if (visibleRouteId.size() > 0) {
                     for (int i = 0; i < visibleRouteId.size(); i++) {
                         int finalI = i;
@@ -164,7 +168,7 @@ public class TramsViewModel extends ViewModel {
         }, 0, PERIOD_REQUEST);
     }
 
-    public LiveData<RouteToDisplay> getRouteToDisplay() {
+    public LiveData<Routes> getRouteToDisplay() {
         return route;
     }
 
@@ -196,7 +200,19 @@ public class TramsViewModel extends ViewModel {
                     .subscribeOn(Schedulers.io())
                     .subscribe(routeToDisplay -> {
                         isRouteShowing = true;
-                        route.postValue(routeToDisplay);
+
+                        List<Point> points = routeToDisplay.getRoute().getPoints().getPoint();
+                        List<LatLng> pointList1 = new ArrayList<>();
+                        List<LatLng> pointList2 = new ArrayList<>();
+                        for (int j = 0; j < points.size(); j++) {
+                            if (points.get(j).getDirection() == 1) {
+                                pointList1.add(new LatLng(Double.parseDouble(points.get(j).getLat()), Double.parseDouble(points.get(j).getLng())));
+                            } else {
+                                pointList2.add(new LatLng(Double.parseDouble(points.get(j).getLat()), Double.parseDouble(points.get(j).getLng())));
+                            }
+                        }
+
+                        route.postValue(new Routes(pointList1, pointList2));
                     }, throwable -> {
                     });
             disposables.add(disposable);

@@ -7,6 +7,7 @@ import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.FragmentActivity;
 
+import com.ewaytest.models.Routes;
 import com.ewaytest.models.Tram;
 import com.ewaytest.models.todisplay.RouteToDisplay;
 import com.ewaytest.models.vehicle.Vehicle;
@@ -34,7 +35,7 @@ abstract class BaseActivity extends FragmentActivity {
 
     abstract boolean isVisibleOnMap(LatLng latLng);
 
-    abstract void showRouteOnMap(RouteToDisplay route);
+    abstract void showRouteOnMap(Routes route);
 
     abstract void addMarkersOnMap(HashMap<String, HashSet<Vehicle>> map);
 

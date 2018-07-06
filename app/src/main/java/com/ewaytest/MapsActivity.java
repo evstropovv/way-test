@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.design.widget.Snackbar;
 
+import com.ewaytest.models.Routes;
 import com.ewaytest.models.Tram;
 import com.ewaytest.models.todisplay.Point;
 import com.ewaytest.models.todisplay.RouteToDisplay;
@@ -111,22 +112,12 @@ public class MapsActivity extends BaseActivity implements OnMapReadyCallback {
     }
 
     @Override
-    void showRouteOnMap(RouteToDisplay route) {
+    void showRouteOnMap(Routes route) {
         if (route != null) {
-            List<Point> points = route.getRoute().getPoints().getPoint();
-            List<LatLng> pointList1 = new ArrayList<>();
-            List<LatLng> pointList2 = new ArrayList<>();
-            for (int i = 0; i < points.size(); i++) {
-                if (points.get(i).getDirection() == 1) {
-                    pointList1.add(new LatLng(Double.parseDouble(points.get(i).getLat()), Double.parseDouble(points.get(i).getLng())));
-                } else {
-                    pointList2.add(new LatLng(Double.parseDouble(points.get(i).getLat()), Double.parseDouble(points.get(i).getLng())));
-                }
-            }
             polyline1 = mMap.addPolyline(new PolylineOptions()
-                    .clickable(true).addAll(pointList1).width(5f).color(Color.parseColor("#7eea0004")));
+                    .clickable(true).addAll(route.getPointList1()).width(5f).color(Color.parseColor("#7eea0004")));
             polyline2 = mMap.addPolyline(new PolylineOptions()
-                    .clickable(false).addAll(pointList2).width(5f).color(Color.parseColor("#6b001eff")));
+                    .clickable(false).addAll(route.getPointList2()).width(5f).color(Color.parseColor("#6b001eff")));
         }
     }
 
